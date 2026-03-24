@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-primary: #002b5a;
+  --color-primary-container: #004182;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #84aff7;
+  
+  --color-secondary: #505f7a;
+  --color-secondary-container: #ceddfe;
+  
+  --color-tertiary: #043405;
+  --color-tertiary-container: #1e4b1a;
+  --color-tertiary-fixed: #bcf0ae;
+  
+  --color-surface: #f9f9ff;
+  --color-surface-container-low: #f3f3f9;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #e8e8ee;
+  --color-surface-container-highest: #e2e2e8;
+  --color-surface-dim: #d9d9e0;
+  
+  --color-on-surface: #1a1c20;
+  --color-on-surface-variant: #424750;
+  
+  --color-outline: #737781;
+  --color-outline-variant: #c3c6d2;
+  
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 2rem;
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-on-surface antialiased;
+  }
+}
+
+.primary-gradient {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-container) 100%);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
