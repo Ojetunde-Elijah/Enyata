@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
+import { tmpdir } from 'os';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { Redis } from '@upstash/redis';
 import type { Customer, Invoice, Product } from '../src/types.js';
@@ -33,7 +34,10 @@ export interface WorkspaceData {
   customers: Customer[];
 }
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+// Local/demo fallback storage.
+// On Vercel serverless, writing to `process.cwd()` (often `/var/task`) may fail.
+// `/tmp` is writable.
+const DATA_DIR = path.join(tmpdir(), 'kolet-paye', 'data');
 const FILE = path.join(DATA_DIR, 'workspace.json');
 const WORKSPACE_KEY = 'kolet:workspace';
 
