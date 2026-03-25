@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { Redis } from '@upstash/redis';
-import type { Customer, Invoice, Product } from '../src/types';
+import type { Customer, Invoice, Product } from '../src/types.js';
 
 export const WORKSPACE_VERSION = 1 as const;
 

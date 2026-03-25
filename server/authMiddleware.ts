@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { readWorkspace, type WorkspaceData } from './workspaceStore';
+import { readWorkspace, type WorkspaceData } from './workspaceStore.js';
 
 export type AuthedRequest = Request & { workspace: WorkspaceData };
 

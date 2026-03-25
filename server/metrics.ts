@@ -1,4 +1,4 @@
-import type { Invoice, Product } from '../src/types';
+import type { Invoice, Product } from '../src/types.js';
 
 export interface DashboardRecentInvoice {
   customer: string;

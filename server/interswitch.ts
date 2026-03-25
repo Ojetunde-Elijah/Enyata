@@ -1,5 +1,5 @@
-import { paymentUrlsForMode } from './config';
-import type { WorkspaceInterswitch } from './workspaceStore';
+import { paymentUrlsForMode } from './config.js';
+import type { WorkspaceInterswitch } from './workspaceStore.js';
 
 export interface AccessTokenResponse {
   access_token: string;
