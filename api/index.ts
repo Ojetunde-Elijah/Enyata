@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerApiRoutes } from '../server/routes.ts';
+import { registerApiRoutes } from '../server/routes';
 
 const app = express();
 registerApiRoutes(app);

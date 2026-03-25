@@ -1,4 +1,4 @@
-import type { Invoice, Product } from '../src/types.ts';
+import type { Invoice, Product } from '../src/types';
 
 export interface DashboardRecentInvoice {
   customer: string;

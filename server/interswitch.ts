@@ -1,5 +1,5 @@
-import { paymentUrlsForMode } from './config.ts';
-import type { WorkspaceInterswitch } from './workspaceStore.ts';
+import { paymentUrlsForMode } from './config';
+import type { WorkspaceInterswitch } from './workspaceStore';
 
 export interface AccessTokenResponse {
   access_token: string;

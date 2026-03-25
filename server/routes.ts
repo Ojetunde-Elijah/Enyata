@@ -1,15 +1,15 @@
 import express, { type Express, type Response } from 'express';
-import type { Invoice } from '../src/types.ts';
-import { serverConfig, paymentUrlsForMode } from './config.ts';
-import { computeDashboard, computeInventorySummary } from './metrics.ts';
-import { authMiddleware, type AuthedRequest } from './authMiddleware.ts';
+import type { Invoice } from '../src/types';
+import { serverConfig, paymentUrlsForMode } from './config';
+import { computeDashboard, computeInventorySummary } from './metrics';
+import { authMiddleware, type AuthedRequest } from './authMiddleware';
 import {
   assertInterswitchReady,
   fetchPassportAccessToken,
   getTransactionJson,
   makeTxnRef,
   nairaToKoboString,
-} from './interswitch.ts';
+} from './interswitch';
 import {
   hashPassword,
   maskClientId,
@@ -20,7 +20,7 @@ import {
   WORKSPACE_VERSION,
   type WorkspaceData,
   type WorkspaceInterswitch,
-} from './workspaceStore.ts';
+} from './workspaceStore';
 
 function bad(res: Response, status: number, msg: string): void {
   res.status(status).json({ error: msg });
