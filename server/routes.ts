@@ -91,7 +91,7 @@ export function registerApiRoutes(app: Express): void {
     }
 
     const check = assertInterswitchReady(interswitch);
-    if (!check.ok) {
+    if (check.ok === false) {
       bad(res, 400, `Missing Interswitch fields: ${check.missing.join(', ')}`);
       return;
     }
@@ -208,7 +208,7 @@ export function registerApiRoutes(app: Express): void {
     }
 
     const check = assertInterswitchReady(workspace.profile.interswitch);
-    if (!check.ok) {
+    if (check.ok === false) {
       bad(res, 400, `Missing Interswitch fields: ${check.missing.join(', ')}`);
       return;
     }
@@ -288,7 +288,7 @@ export function registerApiRoutes(app: Express): void {
     const { workspace } = req as AuthedRequest;
     const inter = workspace.profile.interswitch;
     const check = assertInterswitchReady(inter);
-    if (!check.ok) {
+    if (check.ok === false) {
       res.status(503).json({ error: 'Payment not configured', missing: check.missing });
       return;
     }
@@ -346,7 +346,7 @@ export function registerApiRoutes(app: Express): void {
     const { workspace } = req as AuthedRequest;
     const inter = workspace.profile.interswitch;
     const check = assertInterswitchReady(inter);
-    if (!check.ok) {
+    if (check.ok === false) {
       res.status(503).json({ error: 'Payment not configured', missing: check.missing });
       return;
     }

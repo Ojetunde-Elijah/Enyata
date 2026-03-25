@@ -92,7 +92,7 @@ export function Signup() {
         <h1 className="text-2xl font-bold text-on-surface tracking-tight mb-2">Create your workspace</h1>
         <p className="text-on-surface-variant text-sm font-medium mb-8">
           One administrator account and your Interswitch (Quickteller Business) credentials. Everything is stored
-          locally in <span className="font-mono text-xs">data/workspace.json</span> for this demo.
+          on the server for this demo (Redis on Vercel, local file in <span className="font-mono text-xs">data/workspace.json</span>).
         </p>
 
         <form className="space-y-5" onSubmit={(e) => void onSubmit(e)}>

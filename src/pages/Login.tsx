@@ -77,7 +77,7 @@ export function Login() {
           <div className="relative z-10 flex gap-4">
             <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl flex items-center gap-4">
               <div className="w-2 h-2 rounded-full bg-tertiary-fixed"></div>
-              <span className="text-sm font-medium">Credentials stored in your local data folder</span>
+              <span className="text-sm font-medium">Credentials stored on the server for this demo</span>
             </div>
           </div>
 
@@ -154,7 +154,7 @@ export function Login() {
               </a>
               {' · '}
               <Link className="text-primary font-bold hover:underline" to="/signup">
-                Wrong account? Start over (delete data/workspace.json)
+                Wrong account? Start over (reset workspace)
               </Link>
             </p>
           </div>
@@ -162,7 +162,7 @@ export function Login() {
           <div className="mt-12 pt-8 border-t border-outline-variant/20 flex flex-wrap justify-center gap-6 opacity-60">
             <div className="flex items-center gap-2 grayscale hover:grayscale-0 transition-all cursor-default">
               <Lock className="w-4 h-4" />
-              <span className="text-[10px] font-bold tracking-widest uppercase">Local demo storage</span>
+              <span className="text-[10px] font-bold tracking-widest uppercase">Workspace storage</span>
             </div>
           </div>
         </div>

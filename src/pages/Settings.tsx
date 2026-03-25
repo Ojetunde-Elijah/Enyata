@@ -119,8 +119,8 @@ export function Settings() {
         <div>
           <h2 className="text-3xl font-black text-on-surface tracking-tight">Account Configuration</h2>
           <p className="text-slate-500 mt-1 font-medium">
-            Values you entered at signup are stored on the server in{' '}
-            <span className="font-mono text-xs">data/workspace.json</span>. Update them here anytime.
+            Values you entered at signup are stored on the server in persistent workspace storage
+            (Redis on Vercel, local file in <span className="font-mono text-xs">data/workspace.json</span>). Update them here anytime.
           </p>
         </div>
 

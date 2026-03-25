@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
+import { Redis } from '@upstash/redis';
 import type { Customer, Invoice, Product } from '../src/types.ts';
 
 export const WORKSPACE_VERSION = 1 as const;
@@ -34,6 +35,16 @@ export interface WorkspaceData {
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const FILE = path.join(DATA_DIR, 'workspace.json');
+const WORKSPACE_KEY = 'kolet:workspace';
+
+const hasUpstashRedis =
+  typeof process.env.UPSTASH_REDIS_REST_URL === 'string' &&
+  process.env.UPSTASH_REDIS_REST_URL.trim() !== '' &&
+  typeof process.env.UPSTASH_REDIS_REST_TOKEN === 'string' &&
+  process.env.UPSTASH_REDIS_REST_TOKEN.trim() !== '';
+
+// Use Redis in Vercel/serverless for reliable persistence; fall back to local filesystem for dev.
+const redis = hasUpstashRedis ? Redis.fromEnv() : null;
 
 export async function ensureDataDir(): Promise<void> {
   await mkdir(DATA_DIR, { recursive: true });
@@ -41,6 +52,14 @@ export async function ensureDataDir(): Promise<void> {
 
 export async function readWorkspace(): Promise<WorkspaceData | null> {
   try {
+    if (redis) {
+      const raw = await redis.get<string>(WORKSPACE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as WorkspaceData;
+      if (parsed.version !== WORKSPACE_VERSION) return null;
+      return parsed;
+    }
+
     const raw = await readFile(FILE, 'utf-8');
     const parsed = JSON.parse(raw) as WorkspaceData;
     if (parsed.version !== WORKSPACE_VERSION) return null;
@@ -51,6 +70,11 @@ export async function readWorkspace(): Promise<WorkspaceData | null> {
 }
 
 export async function writeWorkspace(data: WorkspaceData): Promise<void> {
+  if (redis) {
+    await redis.set(WORKSPACE_KEY, JSON.stringify(data));
+    return;
+  }
+
   await ensureDataDir();
   await writeFile(FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
