@@ -23,6 +23,12 @@ const hasUpstashRedis =
 
 const redis = hasUpstashRedis ? Redis.fromEnv() : null;
 
+if (redis) {
+  console.log('[Storage] Multi-user Redis storage initialized.');
+} else {
+  console.log('[Storage] Falling back to local/ephemeral storage.');
+}
+
 function localFile(email) {
   const safe = email.replace(/[^a-z0-9]/gi, '_').toLowerCase();
   return path.join(DATA_DIR, `${FILE_PREFIX}${safe}.json`);
@@ -94,11 +100,6 @@ export async function getUserBySession(token) {
     return null;
   }
 }
-
-/** @deprecated Use readUser/writeUser */
-export async function readWorkspace() { return null; }
-/** @deprecated Use readUser/writeUser */
-export async function writeWorkspace() {}
 
 export function hashPassword(password) {
   const salt = randomBytes(16).toString('hex');
