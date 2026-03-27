@@ -25,10 +25,22 @@ const redis = hasUpstashRedis ? Redis.fromEnv() : null;
 
 const INVOICE_PREFIX = 'kolet:invoice:';
 
+/**
+ * True when storage is reliably persistent.
+ * On Vercel without Redis the tmpdir is per-invocation, so sessions are lost immediately.
+ */
+export function isStorageReady() {
+  // On Vercel (serverless), only Redis guarantees persistence between requests.
+  if (isVercel && !hasUpstashRedis) return false;
+  return true;
+}
+
 if (redis) {
   console.log('[Storage] Multi-user Redis storage initialized.');
+} else if (isVercel) {
+  console.error('[Storage] ⚠️  RUNNING ON VERCEL WITHOUT REDIS — sessions will not persist! Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN in your Vercel project settings.');
 } else {
-  console.log('[Storage] Falling back to local/ephemeral storage.');
+  console.log('[Storage] Falling back to local/ephemeral storage (dev mode).');
 }
 
 function localFile(email) {

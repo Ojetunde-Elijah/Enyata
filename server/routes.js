@@ -25,7 +25,8 @@ import {
   WORKSPACE_VERSION,
   ensureDataDir,
   getUserByInvoice,
-  saveInvoiceIndex
+  saveInvoiceIndex,
+  isStorageReady
 } from './workspaceStore.js';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -131,6 +132,9 @@ export function registerApiRoutes(app) {
   });
 
   app.post('/api/auth/signup', async (req, res) => {
+    if (!isStorageReady()) {
+      return bad(res, 503, 'Session storage is not configured. Please add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to your Vercel environment variables.');
+    }
     const b = req.body || {};
     const email = String(b.email ?? '').trim().toLowerCase();
 
@@ -220,6 +224,9 @@ export function registerApiRoutes(app) {
 
 
   app.post('/api/auth/login', async (req, res) => {
+    if (!isStorageReady()) {
+      return bad(res, 503, 'Session storage is not configured. Please add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to your Vercel environment variables.');
+    }
     const b = req.body || {};
     const email = String(b.email ?? '').trim().toLowerCase();
     const password = String(b.password ?? '');
@@ -238,19 +245,10 @@ export function registerApiRoutes(app) {
     res.json({ token: sessionToken });
   });
 
-  async function authMiddleware(req, res, next) {
-    const auth = req.headers.authorization || '';
-    const token = auth.replace('Bearer ', '').trim();
-    if (!token) return res.status(401).json({ error: 'Auth required' });
-
-    const user = await getUserBySession(token);
-    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
-    req.workspace = user;
-    next();
-  }
 
   const authed = express.Router();
   authed.use(authMiddleware);
+
 
   authed.get('/public-config', (req, res) => {
     const inter = interswitchConfig;
