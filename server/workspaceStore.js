@@ -15,6 +15,11 @@ const DATA_DIR = isVercel
 const FILE_PREFIX = 'user_';
 const SESSION_PREFIX = 'kolet:session:';
 const USER_PREFIX = 'kolet:user:';
+const hasUpstashRedis =
+  typeof process.env.UPSTASH_REDIS_REST_URL === 'string' &&
+  process.env.UPSTASH_REDIS_REST_URL.trim() !== '' &&
+  typeof process.env.UPSTASH_REDIS_REST_TOKEN === 'string' &&
+  process.env.UPSTASH_REDIS_REST_TOKEN.trim() !== '';
 
 const redis = hasUpstashRedis ? Redis.fromEnv() : null;
 
