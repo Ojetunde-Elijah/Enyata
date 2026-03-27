@@ -7,35 +7,11 @@
       "destination": "/api/index?path=$1"
     },
     {
-      "source": "/signup",
+      "source": "/pay/(.*)",
       "destination": "/index.html"
     },
     {
-      "source": "/login",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/dashboard",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/invoices",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/inventory",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/settings",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/reports",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/help",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]
