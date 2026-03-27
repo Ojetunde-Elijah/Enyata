@@ -81,7 +81,7 @@ export function registerApiRoutes(app) {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
-    const inter = foundWs.profile.interswitch;
+    const inter = interswitchConfig; // Source from environment variables
     const check = assertInterswitchReady(inter);
     if (!check.ok) {
        return res.status(503).json({ error: 'Merchant is not configured for payments' });
@@ -124,7 +124,13 @@ export function registerApiRoutes(app) {
 
   app.get('/api/setup/status', async (_req, res) => {
     const w = await readWorkspace();
-    res.json({ hasWorkspace: Boolean(w) });
+    const isVercel = process.env.VERCEL === '1' || !!process.env.NOW_REGION;
+    const hasRedis = typeof process.env.UPSTASH_REDIS_REST_URL === 'string' && process.env.UPSTASH_REDIS_REST_URL.trim() !== '';
+    
+    res.json({ 
+      hasWorkspace: Boolean(w),
+      persistenceIssue: isVercel && !hasRedis ? 'Vercel requires Upstash Redis for session persistence.' : null
+    });
   });
 
   app.post('/api/auth/signup', async (req, res) => {
@@ -237,8 +243,7 @@ export function registerApiRoutes(app) {
   authed.use(authMiddleware);
 
   authed.get('/public-config', (req, res) => {
-    const { workspace } = req;
-    const inter = workspace.profile.interswitch;
+    const inter = interswitchConfig; // Use global config as source of truth
     const urls = paymentUrlsForMode(inter.mode);
     const ready = assertInterswitchReady(inter).ok;
     res.json({
@@ -256,7 +261,7 @@ export function registerApiRoutes(app) {
   authed.get('/merchant-profile', (req, res) => {
     const { workspace } = req;
     const p = workspace.profile;
-    const inter = p.interswitch;
+    const inter = interswitchConfig; // Source from environment variables
     res.json({
       legalBusinessName: p.businessLegalName,
       registeredAddress: p.registeredAddress,
@@ -289,9 +294,9 @@ export function registerApiRoutes(app) {
 
     // Interswitch fields are strictly managed by the backend through environment variables.
     // We no longer update them from the frontend settings payload.
-    const check = assertInterswitchReady(workspace.profile.interswitch);
+    const check = assertInterswitchReady(interswitchConfig);
     if (check.ok === false) {
-      return bad(res, 400, `Missing Interswitch fields: ${check.missing.join(', ')}`);
+      return bad(res, 400, `Platform Interswitch credentials are incomplete: ${check.missing.join(', ')}`);
     }
 
     await writeWorkspace(workspace);
@@ -317,7 +322,7 @@ export function registerApiRoutes(app) {
         workspace.profile.mobileNo) {
       console.log("Dashboard detected missing account. Attempting background recovery...");
       try {
-        const details = await getWalletDetails(workspace.profile.interswitch, workspace.profile.mobileNo);
+        const details = await getWalletDetails(interswitchConfig, workspace.profile.mobileNo);
         if (details && details.virtualAccount) {
           workspace.profile.virtualWallet = details;
           await writeWorkspace(workspace);
@@ -382,10 +387,10 @@ export function registerApiRoutes(app) {
 
   authed.post('/payments/session', async (req, res) => {
     const { workspace } = req;
-    const inter = workspace.profile.interswitch;
+    const inter = interswitchConfig; // Source from environment variables
     const check = assertInterswitchReady(inter);
     if (check.ok === false) {
-      return res.status(503).json({ error: 'Payment not configured', missing: check.missing });
+      return res.status(503).json({ error: 'Merchant is not configured for payments', missing: check.missing });
     }
 
     const body = req.body || {};
@@ -433,11 +438,10 @@ export function registerApiRoutes(app) {
   });
 
   authed.get('/payments/verify', async (req, res) => {
-    const { workspace } = req;
-    const inter = workspace.profile.interswitch;
+    const inter = interswitchConfig; // Source from environment variables
     const check = assertInterswitchReady(inter);
     if (check.ok === false) {
-      return res.status(503).json({ error: 'Payment not configured', missing: check.missing });
+      return res.status(503).json({ error: 'Payment context incomplete', missing: check.missing });
     }
 
     const txnref = typeof req.query.txnref === 'string' ? req.query.txnref.trim() : '';
@@ -461,7 +465,7 @@ export function registerApiRoutes(app) {
 
   authed.post('/withdraw', async (req, res) => {
     const { workspace } = req;
-    const inter = workspace.profile.interswitch;
+    const inter = interswitchConfig; // Source from environment variables
     const collectionBank = workspace.profile.collectionBank;
 
     if (!collectionBank || !collectionBank.accountNumber) {
