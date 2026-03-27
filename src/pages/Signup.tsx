@@ -33,14 +33,14 @@ export function Signup() {
     let cancelled = false;
     (async () => {
       try {
-        const { hasWorkspace } = await getSetupStatus();
-        if (!cancelled && hasWorkspace) navigate('/login', { replace: true });
+        const { persistenceIssue } = await getSetupStatus() as any;
+        if (!cancelled && persistenceIssue) setErr(persistenceIssue);
       } catch {
         /* ignore */
       }
     })();
     return () => { cancelled = true; };
-  }, [navigate]);
+  }, []);
 
   const set =
     (key: FormKey) =>

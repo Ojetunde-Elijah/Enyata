@@ -12,52 +12,88 @@ const DATA_DIR = isVercel
   ? path.join(tmpdir(), 'kolet-paye-data')
   : path.join(process.cwd(), 'data');
 
-const FILE = path.join(DATA_DIR, 'workspace.json');
-const WORKSPACE_KEY = 'kolet:workspace';
-
-const hasUpstashRedis =
-  typeof process.env.UPSTASH_REDIS_REST_URL === 'string' &&
-  process.env.UPSTASH_REDIS_REST_URL.trim() !== '' &&
-  typeof process.env.UPSTASH_REDIS_REST_TOKEN === 'string' &&
-  process.env.UPSTASH_REDIS_REST_TOKEN.trim() !== '';
+const FILE_PREFIX = 'user_';
+const SESSION_PREFIX = 'kolet:session:';
+const USER_PREFIX = 'kolet:user:';
 
 const redis = hasUpstashRedis ? Redis.fromEnv() : null;
+
+function localFile(email) {
+  const safe = email.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  return path.join(DATA_DIR, `${FILE_PREFIX}${safe}.json`);
+}
 
 export async function ensureDataDir() {
   await mkdir(DATA_DIR, { recursive: true });
 }
 
-export async function readWorkspace() {
+export async function readUser(email) {
+  if (!email) return null;
   try {
     if (redis) {
-      const raw = await redis.get(WORKSPACE_KEY);
+      const raw = await redis.get(`${USER_PREFIX}${email.toLowerCase()}`);
       if (!raw) return null;
-      let parsed;
-      if (typeof raw === 'string') {
-          parsed = JSON.parse(raw);
-      } else {
-          parsed = raw;
-      }
-      return parsed;
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
     }
 
-    const raw = await readFile(FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    return parsed;
+    const raw = await readFile(localFile(email), 'utf-8');
+    return JSON.parse(raw);
   } catch {
     return null;
   }
 }
 
-export async function writeWorkspace(data) {
+export async function writeUser(data) {
+  const email = data.email?.toLowerCase();
+  if (!email) throw new Error('Email is required to save user');
+
   if (redis) {
-    await redis.set(WORKSPACE_KEY, JSON.stringify(data));
+    await redis.set(`${USER_PREFIX}${email}`, JSON.stringify(data));
     return;
   }
 
   await ensureDataDir();
-  await writeFile(FILE, JSON.stringify(data, null, 2), 'utf-8');
+  await writeFile(localFile(email), JSON.stringify(data, null, 2), 'utf-8');
 }
+
+export async function saveSession(token, email) {
+  if (redis) {
+    await redis.set(`${SESSION_PREFIX}${token}`, email.toLowerCase());
+    return;
+  }
+  // Local fallback: we'll just use a shared sessions file for simplicity in dev
+  const sessFile = path.join(DATA_DIR, 'sessions.json');
+  let sessions = {};
+  try {
+    sessions = JSON.parse(await readFile(sessFile, 'utf-8'));
+  } catch {}
+  sessions[token] = email.toLowerCase();
+  await ensureDataDir();
+  await writeFile(sessFile, JSON.stringify(sessions));
+}
+
+export async function getUserBySession(token) {
+  if (!token) return null;
+  try {
+    let email = null;
+    if (redis) {
+      email = await redis.get(`${SESSION_PREFIX}${token}`);
+    } else {
+      const sessFile = path.join(DATA_DIR, 'sessions.json');
+      const sessions = JSON.parse(await readFile(sessFile, 'utf-8'));
+      email = sessions[token];
+    }
+    if (!email) return null;
+    return await readUser(email);
+  } catch {
+    return null;
+  }
+}
+
+/** @deprecated Use readUser/writeUser */
+export async function readWorkspace() { return null; }
+/** @deprecated Use readUser/writeUser */
+export async function writeWorkspace() {}
 
 export function hashPassword(password) {
   const salt = randomBytes(16).toString('hex');

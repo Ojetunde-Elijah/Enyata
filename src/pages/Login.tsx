@@ -15,9 +15,8 @@ export function Login() {
     let cancelled = false;
     (async () => {
       try {
-        const { hasWorkspace, persistenceIssue } = await getSetupStatus() as any;
-        if (persistenceIssue) setErr(persistenceIssue);
-        if (!cancelled && !hasWorkspace) navigate('/signup', { replace: true });
+        const { persistenceIssue } = await getSetupStatus() as any;
+        if (!cancelled && persistenceIssue) setErr(persistenceIssue);
       } catch {
         if (!cancelled) setErr('Cannot reach server. Is npm run dev running?');
       } finally {

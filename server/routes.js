@@ -14,14 +14,20 @@ import {
   executePayout
 } from './interswitch.js';
 import {
+  readUser,
+  writeUser,
+  saveSession,
+  getUserBySession,
   hashPassword,
-  maskClientId,
-  newSessionToken,
-  readWorkspace,
   verifyPassword,
-  writeWorkspace,
+  newSessionToken,
+  maskClientId,
   WORKSPACE_VERSION,
+  ensureDataDir
 } from './workspaceStore.js';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 function bad(res, status, msg) {
   res.status(status).json({ error: msg });
@@ -35,20 +41,21 @@ export function registerApiRoutes(app) {
 
   app.get('/public/invoice/:invoiceId', async (req, res) => {
     const { invoiceId } = req.params;
-    const data = await readWorkspace();
-    if (!data) return res.status(404).json({ error: 'Invoice not found' });
 
-    // Assuming `readWorkspace` now returns an object with a `workspaces` property
-    // or that the structure has changed to support multiple workspaces.
-    // If `readWorkspace` returns a single workspace directly, this loop needs adjustment.
-    // For now, assuming `data` is the single workspace.
-    const ws = data; // Assuming `data` is the single workspace object
+    // We need to find which user this invoice belongs to.
+    // We'll use a global index for this.
+    const ownerEmail = await getUserByInvoice(invoiceId);
+    if (!ownerEmail) return res.status(404).json({ error: 'Invoice not found' });
+
+    const ws = await readUser(ownerEmail);
+    if (!ws) return res.status(404).json({ error: 'Merchant not found' });
+
     const inv = ws.invoices.find(i => i.id === invoiceId);
     if (inv) {
       return res.json({
         invoice: inv,
         businessName: ws.profile.businessLegalName || ws.profile.fullName || 'Merchant',
-        merchantCode: ws.profile.interswitch.merchantCode,
+        merchantCode: interswitchConfig.merchantCode,
       });
     }
     res.status(404).json({ error: 'Invoice not found' });
@@ -60,25 +67,13 @@ export function registerApiRoutes(app) {
       return bad(res, 400, 'invoiceId and custEmail are required');
     }
 
-    const data = await readWorkspace();
-    if (!data) return res.status(404).json({ error: 'Merchant data unavailable' });
+    const ownerEmail = await getUserByInvoice(invoiceId);
+    if (!ownerEmail) return res.status(404).json({ error: 'Invoice not found' });
 
-    let foundInv = null;
-    let foundWs = null;
-
-    // Assuming `readWorkspace` now returns an object with a `workspaces` property
-    // or that the structure has changed to support multiple workspaces.
-    // If `readWorkspace` returns a single workspace directly, this loop needs adjustment.
-    // For now, assuming `data` is the single workspace.
-    const ws = data; // Assuming `data` is the single workspace object
-    const inv = ws.invoices.find(i => i.id === invoiceId);
-    if (inv) {
-      foundInv = inv;
-      foundWs = ws;
-    }
-
+    const foundWs = await readUser(ownerEmail);
+    const foundInv = foundWs?.invoices.find(i => i.id === invoiceId);
     if (!foundInv || !foundWs) {
-      return res.status(404).json({ error: 'Invoice not found' });
+      return res.status(404).json({ error: 'Invoice or Merchant not found' });
     }
 
     const inter = interswitchConfig; // Source from environment variables
@@ -118,29 +113,62 @@ export function registerApiRoutes(app) {
 
   // --- End Public APIs ---
 
+  async function getUserByInvoice(invoiceId) {
+    // Helper to resolve invoice to owner
+    const redis = !!process.env.UPSTASH_REDIS_REST_URL;
+    if (redis) {
+        const { Redis } = await import('@upstash/redis');
+        const r = Redis.fromEnv();
+        return await r.get(`kolet:invoice:${invoiceId}`);
+    }
+    // Shared index for local dev
+    try {
+        const idx = JSON.parse(await readFile(path.join(tmpdir(), 'kolet-paye-data', 'invoice_index.json'), 'utf-8'));
+        return idx[invoiceId];
+    } catch { return null; }
+  }
+
+  async function saveInvoiceIndex(invoiceId, email) {
+    const redis = !!process.env.UPSTASH_REDIS_REST_URL;
+    if (redis) {
+        const { Redis } = await import('@upstash/redis');
+        const r = Redis.fromEnv();
+        await r.set(`kolet:invoice:${invoiceId}`, email);
+        return;
+    }
+    const dir = path.join(tmpdir(), 'kolet-paye-data');
+    await mkdir(dir, { recursive: true });
+    const file = path.join(dir, 'invoice_index.json');
+    let idx = {};
+    try { idx = JSON.parse(await readFile(file, 'utf-8')); } catch {}
+    idx[invoiceId] = email;
+    await writeFile(file, JSON.stringify(idx));
+  }
+
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
   app.get('/api/setup/status', async (_req, res) => {
-    const w = await readWorkspace();
+    // In multi-user mode, we always want people to be able to sign up or log in.
     const isVercel = process.env.VERCEL === '1' || !!process.env.NOW_REGION;
     const hasRedis = typeof process.env.UPSTASH_REDIS_REST_URL === 'string' && process.env.UPSTASH_REDIS_REST_URL.trim() !== '';
-    
-    res.json({ 
-      hasWorkspace: Boolean(w),
+
+    res.json({
+      hasWorkspace: true, // Always show login/signup
       persistenceIssue: isVercel && !hasRedis ? 'Vercel requires Upstash Redis for session persistence.' : null
     });
   });
 
   app.post('/api/auth/signup', async (req, res) => {
-    if (await readWorkspace()) {
-      bad(res, 409, 'Workspace already exists. Sign in instead.');
-      return;
-    }
-
     const b = req.body || {};
     const email = String(b.email ?? '').trim().toLowerCase();
+
+    if (!email) return bad(res, 400, 'Email is required');
+    if (await readUser(email)) {
+      bad(res, 409, 'An account with this email already exists.');
+      return;
+    }
     const password = String(b.password ?? '');
     const businessLegalName = String(b.businessLegalName ?? '').trim();
     const registeredAddress = String(b.registeredAddress ?? '').trim();
@@ -215,38 +243,50 @@ export function registerApiRoutes(app) {
       customers: [],
     };
 
-    await writeWorkspace(data);
+    await writeUser(data);
+    await saveSession(sessionToken, email);
     res.json({ token: sessionToken });
   });
 
 
   app.post('/api/auth/login', async (req, res) => {
-    const w = await readWorkspace();
-    if (!w) {
-      return bad(res, 404, 'No workspace yet. Complete signup first.');
-    }
-
     const b = req.body || {};
     const email = String(b.email ?? '').trim().toLowerCase();
     const password = String(b.password ?? '');
 
-    if (email !== w.email || !verifyPassword(password, w.passwordHash)) {
+    const w = await readUser(email);
+    if (!w) {
+      return bad(res, 404, 'No account found with this email.');
+    }
+
+    if (!verifyPassword(password, w.passwordHash)) {
       return bad(res, 401, 'Invalid email or password.');
     }
 
-    w.sessionToken = newSessionToken();
-    await writeWorkspace(w);
-    res.json({ token: w.sessionToken });
+    const sessionToken = newSessionToken();
+    await saveSession(sessionToken, email);
+    res.json({ token: sessionToken });
   });
+
+  async function authMiddleware(req, res, next) {
+    const auth = req.headers.authorization || '';
+    const token = auth.replace('Bearer ', '').trim();
+    if (!token) return res.status(401).json({ error: 'Auth required' });
+
+    const user = await getUserBySession(token);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    req.workspace = user;
+    next();
+  }
 
   const authed = express.Router();
   authed.use(authMiddleware);
 
   authed.get('/public-config', (req, res) => {
-    const inter = interswitchConfig; 
+    const inter = interswitchConfig;
     const urls = paymentUrlsForMode(inter.mode);
     const check = assertInterswitchReady(inter);
-    
+
     // Log for Vercel console troubleshooting (masked)
     console.log(`[Config Check] Merchant: ${inter.merchantCode || 'MISSING'}, PayItem: ${inter.payItemId || 'MISSING'}, ClientID: ${maskClientId(inter.clientId)}, Secret: ${inter.secretKey ? 'PRESENT' : 'MISSING'}`);
 
@@ -304,7 +344,7 @@ export function registerApiRoutes(app) {
       return bad(res, 400, `Platform Interswitch credentials are incomplete: ${check.missing.join(', ')}`);
     }
 
-    await writeWorkspace(workspace);
+    await writeUser(workspace);
     res.json({ ok: true });
   });
 
@@ -320,17 +360,17 @@ export function registerApiRoutes(app) {
 
   authed.get('/dashboard', async (req, res) => {
     const { workspace } = req;
-    
+
     // Automatic Background Recovery for "envelope" responses
-    if (workspace.profile.virtualWallet?.responseDescription === 'true' && 
-        !workspace.profile.virtualWallet.virtualAccount && 
+    if (workspace.profile.virtualWallet?.responseDescription === 'true' &&
+        !workspace.profile.virtualWallet.virtualAccount &&
         workspace.profile.mobileNo) {
       console.log("Dashboard detected missing account. Attempting background recovery...");
       try {
         const details = await getWalletDetails(interswitchConfig, workspace.profile.mobileNo);
         if (details && details.virtualAccount) {
           workspace.profile.virtualWallet = details;
-          await writeWorkspace(workspace);
+          await writeUser(workspace);
         }
       } catch (e) {
         console.warn("Background recovery failed:", e.message);
@@ -363,17 +403,20 @@ export function registerApiRoutes(app) {
     const st = allowed.includes(status) ? status : 'Pending';
     const items = typeof b.items === 'number' && b.items > 0 ? Math.floor(b.items) : 1;
 
+    const id = `INV-${Date.now()}`;
     const inv = {
-      id: `INV-${Date.now()}`,
+      id,
       customer,
       date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
       amount,
       status: st,
       items,
+      initials: (customer[0] || '?') + (customer[1] || '').toUpperCase(),
     };
 
     workspace.invoices.unshift(inv);
-    await writeWorkspace(workspace);
+    await saveInvoiceIndex(id, workspace.email);
+    await writeUser(workspace);
     res.json(inv);
   });
 
