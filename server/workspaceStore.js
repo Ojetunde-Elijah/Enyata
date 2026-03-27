@@ -23,6 +23,8 @@ const hasUpstashRedis =
 
 const redis = hasUpstashRedis ? Redis.fromEnv() : null;
 
+const INVOICE_PREFIX = 'kolet:invoice:';
+
 if (redis) {
   console.log('[Storage] Multi-user Redis storage initialized.');
 } else {
@@ -120,6 +122,37 @@ export function verifyPassword(password, stored) {
 
 export function newSessionToken() {
   return randomBytes(32).toString('hex');
+}
+
+export async function getUserByInvoice(invoiceId) {
+  if (!invoiceId) return null;
+  try {
+    if (redis) {
+      return await redis.get(`${INVOICE_PREFIX}${invoiceId}`);
+    }
+    // Shared index for local dev
+    const sessFile = path.join(DATA_DIR, 'invoice_index.json');
+    const idx = JSON.parse(await readFile(sessFile, 'utf-8'));
+    return idx[invoiceId];
+  } catch {
+    return null;
+  }
+}
+
+export async function saveInvoiceIndex(invoiceId, email) {
+  if (!invoiceId || !email) return;
+  if (redis) {
+    await redis.set(`${INVOICE_PREFIX}${invoiceId}`, email.toLowerCase());
+    return;
+  }
+  const file = path.join(DATA_DIR, 'invoice_index.json');
+  let idx = {};
+  try {
+    idx = JSON.parse(await readFile(file, 'utf-8'));
+  } catch {}
+  idx[invoiceId] = email.toLowerCase();
+  await ensureDataDir();
+  await writeFile(file, JSON.stringify(idx));
 }
 
 export function maskClientId(id) {

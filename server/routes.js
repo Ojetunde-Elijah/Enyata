@@ -23,7 +23,9 @@ import {
   newSessionToken,
   maskClientId,
   WORKSPACE_VERSION,
-  ensureDataDir
+  ensureDataDir,
+  getUserByInvoice,
+  saveInvoiceIndex
 } from './workspaceStore.js';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -112,38 +114,6 @@ export function registerApiRoutes(app) {
   });
 
   // --- End Public APIs ---
-
-  async function getUserByInvoice(invoiceId) {
-    // Helper to resolve invoice to owner
-    const redis = !!process.env.UPSTASH_REDIS_REST_URL;
-    if (redis) {
-        const { Redis } = await import('@upstash/redis');
-        const r = Redis.fromEnv();
-        return await r.get(`kolet:invoice:${invoiceId}`);
-    }
-    // Shared index for local dev
-    try {
-        const idx = JSON.parse(await readFile(path.join(tmpdir(), 'kolet-paye-data', 'invoice_index.json'), 'utf-8'));
-        return idx[invoiceId];
-    } catch { return null; }
-  }
-
-  async function saveInvoiceIndex(invoiceId, email) {
-    const redis = !!process.env.UPSTASH_REDIS_REST_URL;
-    if (redis) {
-        const { Redis } = await import('@upstash/redis');
-        const r = Redis.fromEnv();
-        await r.set(`kolet:invoice:${invoiceId}`, email);
-        return;
-    }
-    const dir = path.join(tmpdir(), 'kolet-paye-data');
-    await mkdir(dir, { recursive: true });
-    const file = path.join(dir, 'invoice_index.json');
-    let idx = {};
-    try { idx = JSON.parse(await readFile(file, 'utf-8')); } catch {}
-    idx[invoiceId] = email;
-    await writeFile(file, JSON.stringify(idx));
-  }
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
