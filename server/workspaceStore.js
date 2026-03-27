@@ -7,7 +7,11 @@ import { Redis } from '@upstash/redis';
 export const WORKSPACE_VERSION = 2; // bumped to 2 for wallet changes
 
 // Local/demo fallback storage.
-const DATA_DIR = path.join(process.cwd(), 'data');
+const isVercel = process.env.VERCEL === '1' || !!process.env.NOW_REGION;
+const DATA_DIR = isVercel 
+  ? path.join(tmpdir(), 'kolet-paye-data')
+  : path.join(process.cwd(), 'data');
+
 const FILE = path.join(DATA_DIR, 'workspace.json');
 const WORKSPACE_KEY = 'kolet:workspace';
 

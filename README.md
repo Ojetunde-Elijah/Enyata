@@ -30,6 +30,16 @@ During development, we identified significant latency and intermittent stability
 - **Used**: API Marketplace (Identity), WebPay (Collections), Passport (Auth).
 - **Defined but Deferred**: Payouts & Merchant Wallets. While the code supports these (see `executePayout` in `interswitch.js`), they were kept as secondary features to prioritize the stability of the **Collections** flow for the initial launch.
 
+### Persistence on Vercel (Important)
+Vercel has a read-only filesystem. 
+- **The Fix**: I've updated the app to use a `/tmp` fallback to prevent crashes during signup.
+- **Requirement**: For **permanent** data storage (so your users don't disappear), you **MUST** configure **Upstash Redis** (`UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`) in your Vercel project settings. 
+
+### Ready to Go?
+1. Open your Vercel Dashboard.
+2. Add the Interswitch and Upstash environment variables.
+3. Redeploy.
+
 ## 💻 Running Locally
 
 1. **Install Dependencies**: `npm install`
