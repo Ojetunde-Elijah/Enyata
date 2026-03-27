@@ -243,9 +243,13 @@ export function registerApiRoutes(app) {
   authed.use(authMiddleware);
 
   authed.get('/public-config', (req, res) => {
-    const inter = interswitchConfig; // Use global config as source of truth
+    const inter = interswitchConfig; 
     const urls = paymentUrlsForMode(inter.mode);
-    const ready = assertInterswitchReady(inter).ok;
+    const check = assertInterswitchReady(inter);
+    
+    // Log for Vercel console troubleshooting (masked)
+    console.log(`[Config Check] Merchant: ${inter.merchantCode || 'MISSING'}, PayItem: ${inter.payItemId || 'MISSING'}, ClientID: ${maskClientId(inter.clientId)}, Secret: ${inter.secretKey ? 'PRESENT' : 'MISSING'}`);
+
     res.json({
       merchantCode: inter.merchantCode,
       payItemId: inter.payItemId,
@@ -254,7 +258,8 @@ export function registerApiRoutes(app) {
       tillAlias: inter.tillAlias || null,
       inlineCheckoutScriptUrl: urls.inlineCheckoutScriptUrl,
       publicAppUrl: serverConfig.publicAppUrl,
-      paymentEnvReady: ready,
+      paymentEnvReady: check.ok,
+      missingFields: check.ok ? [] : check.missing // Help user see what's missing
     });
   });
 
