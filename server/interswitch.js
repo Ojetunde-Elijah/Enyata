@@ -212,12 +212,12 @@ export async function executePayout(inter, payload) {
 }
 
 
-export function nairaToKoboString(naira) {
-  return String(Math.round(naira * 100));
+export function nairaToKobo(naira) {
+  return Math.round(naira * 100);
 }
 
 export function makeTxnRef(prefix = 'KP') {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  return `${prefix}${Date.now()}${Math.random().toString(36).slice(2, 6)}`.toUpperCase();
 }
 
 export function assertInterswitchReady(inter) {

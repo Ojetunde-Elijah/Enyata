@@ -18,13 +18,18 @@ import {
   Download,
   History,
   Mail,
+  Plus,
+  Filter,
+  CreditCard,
+  ExternalLink,
+  Link,
+  Check,
+  Send,
   Copy,
   Trash2,
   Printer,
-  CreditCard,
-  Plus,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { cn } from '../utils/cn';
 
 export function Invoices() {
@@ -270,31 +275,60 @@ export function Invoices() {
                   <h1 className="text-2xl font-black text-on-surface tracking-tight">Invoice Detail</h1>
                   <p className="text-sm text-on-surface-variant">Review and manage e-invoice</p>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-                  <input
-                    type="email"
-                    value={payerEmail}
-                    onChange={(e) => setPayerEmail(e.target.value)}
-                    className="px-3 py-2 rounded-lg bg-surface-container-highest text-sm font-medium min-w-[200px]"
-                    placeholder="Payer email (required)"
-                    aria-label="Payer email for checkout"
-                  />
+                
+                <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+                  <div className="relative group">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant group-focus-within:text-primary" />
+                    <input
+                      type="email"
+                      value={payerEmail}
+                      onChange={(e) => setPayerEmail(e.target.value)}
+                      className="pl-10 pr-4 py-2 rounded-xl bg-surface-container-highest text-sm font-medium min-w-[240px] border border-transparent focus:border-primary/30 outline-none transition-all"
+                      placeholder="Customer email (for receipt)"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={payBusy || !selectedInvoice}
+                      onClick={() => {
+                        const url = `${window.location.origin}/pay/${selectedInvoice.id}`;
+                        navigator.clipboard.writeText(url);
+                        setPayMsg('Payment link copied to clipboard!');
+                        setTimeout(() => setPayMsg(''), 3000);
+                      }}
+                      className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 text-white font-semibold rounded-lg shadow-sm hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                      title="Copy public payment link"
+                    >
+                      <Link className="w-4 h-4" />
+                      <span className="text-xs">Copy Link</span>
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = `${window.location.origin}/pay/${selectedInvoice.id}`;
+                        const text = `Hello ${selectedInvoice.customer}, here is your payment link for Invoice ${selectedInvoice.id} from ${profile.legalBusinessName}: ${url}`;
+                        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-[#25D366] text-white font-semibold rounded-lg hover:opacity-90 transition-all active:scale-95"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span className="text-xs">WhatsApp</span>
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     disabled={payBusy || !selectedInvoice}
                     onClick={() => void runCheckout()}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 text-white font-semibold rounded-lg shadow-sm hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 px-4 py-2 border border-outline-variant text-on-surface font-semibold rounded-lg hover:bg-surface-container-highest transition-all active:scale-95 disabled:opacity-50"
                   >
                     <CreditCard className="w-4 h-4" />
-                    <span className="text-xs">{payBusy ? 'Opening…' : 'Collect with Interswitch'}</span>
+                    <span className="text-xs">{payBusy ? 'Opening…' : 'Pay Now (Inline)'}</span>
                   </button>
-                  <button
-                    type="button"
-                    className="flex items-center gap-2 px-4 py-2 bg-surface-container-highest text-on-surface font-semibold rounded-lg hover:bg-surface-variant transition-colors active:scale-95"
-                  >
-                    <Share2 className="w-4 h-4" />
-                    <span className="text-xs">Share via WhatsApp</span>
-                  </button>
+
                   <button
                     type="button"
                     className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary font-semibold rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95"

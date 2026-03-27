@@ -9,7 +9,7 @@ import {
   fetchPassportAccessToken,
   getTransactionJson,
   makeTxnRef,
-  nairaToKoboString,
+  nairaToKobo,
   createVirtualWallet,
   executePayout
 } from './interswitch.js';
@@ -30,6 +30,93 @@ function bad(res, status, msg) {
 // normalizeInter removed as we no longer take interswitch config from client payload
 export function registerApiRoutes(app) {
   app.use(express.json());
+
+  // --- Public Payment Link APIs ---
+
+  app.get('/public/invoice/:invoiceId', async (req, res) => {
+    const { invoiceId } = req.params;
+    const data = await readWorkspace();
+    if (!data) return res.status(404).json({ error: 'Invoice not found' });
+
+    // Assuming `readWorkspace` now returns an object with a `workspaces` property
+    // or that the structure has changed to support multiple workspaces.
+    // If `readWorkspace` returns a single workspace directly, this loop needs adjustment.
+    // For now, assuming `data` is the single workspace.
+    const ws = data; // Assuming `data` is the single workspace object
+    const inv = ws.invoices.find(i => i.id === invoiceId);
+    if (inv) {
+      return res.json({
+        invoice: inv,
+        businessName: ws.profile.businessLegalName || ws.profile.fullName || 'Merchant',
+        merchantCode: ws.profile.interswitch.merchantCode,
+      });
+    }
+    res.status(404).json({ error: 'Invoice not found' });
+  });
+
+  app.post('/public/payments/session', async (req, res) => {
+    const { invoiceId, custEmail } = req.body;
+    if (!invoiceId || !custEmail) {
+      return bad(res, 400, 'invoiceId and custEmail are required');
+    }
+
+    const data = await readWorkspace();
+    if (!data) return res.status(404).json({ error: 'Merchant data unavailable' });
+
+    let foundInv = null;
+    let foundWs = null;
+
+    // Assuming `readWorkspace` now returns an object with a `workspaces` property
+    // or that the structure has changed to support multiple workspaces.
+    // If `readWorkspace` returns a single workspace directly, this loop needs adjustment.
+    // For now, assuming `data` is the single workspace.
+    const ws = data; // Assuming `data` is the single workspace object
+    const inv = ws.invoices.find(i => i.id === invoiceId);
+    if (inv) {
+      foundInv = inv;
+      foundWs = ws;
+    }
+
+    if (!foundInv || !foundWs) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    const inter = foundWs.profile.interswitch;
+    const check = assertInterswitchReady(inter);
+    if (!check.ok) {
+       return res.status(503).json({ error: 'Merchant is not configured for payments' });
+    }
+
+    const txn_ref = makeTxnRef();
+    const amountKobo = nairaToKobo(foundInv.amount);
+    const site_redirect_url = `${serverConfig.publicAppUrl.replace(/\/$/, '')}/pay/${invoiceId}/success`;
+
+    let access_token = null;
+    let payable_id = inter.payItemId;
+    try {
+      const tok = await fetchPassportAccessToken(inter);
+      access_token = tok.access_token;
+      if (tok.payable_id) payable_id = tok.payable_id;
+    } catch (e) {
+      console.warn(`[Public Payment] Token fetch failed: ${e.message}`);
+    }
+
+    res.json({
+      txn_ref,
+      merchant_code: inter.merchantCode,
+      pay_item_id: payable_id,
+      amount: amountKobo,
+      currency: Number(serverConfig.currencyNumeric),
+      mode: inter.mode,
+      site_redirect_url,
+      cust_email: custEmail,
+      cust_name: foundInv.customerName,
+      pay_item_name: `Invoice ${foundInv.number}`,
+      access_token: inter.mode === 'LIVE' ? access_token : null,
+    });
+  });
+
+  // --- End Public APIs ---
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -313,29 +400,35 @@ export function registerApiRoutes(app) {
     }
 
     const txn_ref = makeTxnRef();
-    const amountKobo = nairaToKoboString(amountNaira);
+    const amountKobo = nairaToKobo(amountNaira);
     const site_redirect_url = `${serverConfig.publicAppUrl.replace(/\/$/, '')}/dashboard`;
 
-    let access_token;
+    let access_token = null;
+    let payable_id = inter.payItemId; // fallback
     try {
       const tok = await fetchPassportAccessToken(inter);
       access_token = tok.access_token;
-    } catch {
-      // Optional for some widget flows
+      if (tok.payable_id) {
+        payable_id = tok.payable_id;
+        console.log(`[Payment] Using numeric payable_id from token: ${payable_id}`);
+      }
+    } catch (e) {
+      console.warn(`[Payment] Token fetch failed, defaulting to ${payable_id}`, e.message);
     }
 
     res.json({
       txn_ref,
       merchant_code: inter.merchantCode,
-      pay_item_id: inter.payItemId,
+      pay_item_id: payable_id,
       amount: amountKobo,
-      currency: serverConfig.currencyNumeric,
+      currency: Number(serverConfig.currencyNumeric), // ensure numeric
       mode: inter.mode,
       site_redirect_url,
       cust_email: custEmail,
       cust_name: typeof body.custName === 'string' ? body.custName : '',
       pay_item_name: typeof body.payItemName === 'string' && body.payItemName ? body.payItemName : 'Kolet Pay invoice',
-      access_token,
+      // Some sandbox merchants conflict with the access_token in the inline script
+      access_token: inter.mode === 'LIVE' ? access_token : null,
     });
   });
 

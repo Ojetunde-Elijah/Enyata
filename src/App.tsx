@@ -8,6 +8,7 @@ import { Inventory } from './pages/Inventory';
 import { Settings } from './pages/Settings';
 import { Reports } from './pages/Reports';
 import { Help } from './pages/Help';
+import { PublicPayment } from './pages/PublicPayment';
 import { RequireAuth } from './components/RequireAuth';
 
 export default function App() {
@@ -64,6 +65,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+        <Route path="/pay/:invoiceId" element={<PublicPayment />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>

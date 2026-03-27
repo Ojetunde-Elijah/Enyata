@@ -1,20 +1,45 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Kolet Pay Platform
 
-# Run and deploy your AI Studio app
+Kolet Pay is a robust payment collection and merchant onboarding platform integrated with the **Interswitch** ecosystem.
 
-This contains everything you need to run your app locally.
+## 🚀 Implemented Features
 
-View your app in AI Studio: https://ai.studio/apps/e9f9e791-db32-4daa-8dc6-636149593e58
+### 1. Rigorous KYC Onboarding
+- **Identity Verification**: Real-time NIN and BVN validation via the **Interswitch API Marketplace**.
+- **Business Verification**: TIN validation for corporate entities.
+- **Resilience**: Implemented a "soft-fail" strategy to handle Marketplace downtime without blocking the entire signup flow.
 
-## Run Locally
+### 2. E-Invoice Management
+- **Invoice Creation**: Merchants can generate professional invoices for their customers.
+- **Bank Guard**: Enforces that a collection bank is configured before any invoice can be issued.
 
-**Prerequisites:**  Node.js
+### 3. Integrated Payments
+- **Interswitch Web Checkout (Inline)**: Direct, secure payment processing within the dashboard.
+- **Shareable Payment Links**: Generation of public, mobile-responsive payment portals (e.g., `kolet.pay/pay/:id`).
+- **WhatsApp Integration**: One-click sharing of payment links to customers' WhatsApp.
 
+## 🛠️ Technical Decisions & Logic
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### Dummy Account Strategy (Alternative Logic)
+During development, we identified significant latency and intermittent stability issues in the Interswitch sandbox for real-time **Merchant Wallet** and **Virtual Account** provisioning.
+- **Decision**: To ensure a premium user experience, new signups are initialized with a **Dummy Account** state (₦0.00, "Verification Pending").
+- **Benefit**: This allows the merchant to access the dashboard immediately. 
+- **Production Path**: In a live environment, the `createVirtualWallet` call (defined in `interswitch.js`) should be awaited fully, or the dummy state should be replaced once the background provisioning callback is received.
+
+### API Usage Summary
+- **Used**: API Marketplace (Identity), WebPay (Collections), Passport (Auth).
+- **Defined but Deferred**: Payouts & Merchant Wallets. While the code supports these (see `executePayout` in `interswitch.js`), they were kept as secondary features to prioritize the stability of the **Collections** flow for the initial launch.
+
+## 💻 Running Locally
+
+1. **Install Dependencies**: `npm install`
+2. **Configure Environment**: Copy `.env.example` to `.env` and fill in:
+   - `INTERSWITCH_*` (Merchant credentials)
+   - `API_MARKET_*` (Marketplace credentials)
+   - `UPSTASH_REDIS_*` (For production persistence)
+3. **Run Dev Server**: `npm run dev` (Runs both Vite & Node backend)
+
+## ☁️ Deployment (Vercel)
+- Ensure all environment variables are set in the Vercel Dashboard.
+- Build command: `npm run build`
+- Deploy: `npx vercel --prod`

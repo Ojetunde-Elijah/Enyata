@@ -154,8 +154,8 @@ export interface PaymentSession {
   txn_ref: string;
   merchant_code: string;
   pay_item_id: string;
-  amount: string;
-  currency: string;
+  amount: number;
+  currency: number;
   mode: 'TEST' | 'LIVE';
   site_redirect_url: string;
   cust_email: string;
