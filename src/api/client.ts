@@ -19,16 +19,19 @@ export interface SignupPayload {
   password: string;
   businessLegalName: string;
   registeredAddress: string;
-  interswitch: {
-    merchantCode: string;
-    payItemId: string;
-    clientId: string;
-    secretKey: string;
-    mode: 'TEST' | 'LIVE';
-    tillAlias?: string;
-    dataRef?: string;
+  mobileNo?: string;
+  firstName?: string;
+  lastName: string;
+  nin: string;
+  bvn: string;
+  tin?: string;
+  collectionBank?: {
+    accountNumber: string;
+    bankCode: string;
+    accountName?: string;
   };
 }
+
 
 async function handleResponse<T>(res: Response, opts?: { auth?: boolean }): Promise<T> {
   if (res.status === 401 && opts?.auth && getToken()) {
@@ -106,6 +109,17 @@ export interface MerchantProfile {
   hasDataRefConfigured: boolean;
   clientIdMasked: string;
   hasClientSecret: boolean;
+  virtualWallet: {
+    walletId?: string;
+    virtualAccount?: {
+      accountNumber: string;
+      bankName: string;
+      bankCode: string;
+      accountName: string;
+    };
+  } | null;
+  collectionBank: { accountNumber: string; bankCode: string; accountName?: string } | null;
+  masterWalletId: string | null;
 }
 
 export interface DashboardRecentInvoice {
@@ -133,6 +147,7 @@ export interface DashboardPayload {
   salesTrendHeights: number[];
   salesTrendLabels: string[];
   payout: { nextDate: string; estimatedNaira: number; estimatedFormatted: string };
+  virtualWallet: MerchantProfile['virtualWallet'];
 }
 
 export interface PaymentSession {
@@ -171,15 +186,8 @@ export async function getMerchantProfile(): Promise<MerchantProfile> {
 export async function saveSettings(body: {
   businessLegalName?: string;
   registeredAddress?: string;
-  interswitch?: Partial<{
-    merchantCode: string;
-    payItemId: string;
-    clientId: string;
-    secretKey: string;
-    mode: 'TEST' | 'LIVE';
-    tillAlias: string;
-    dataRef: string;
-  }>;
+  collectionBank?: { accountNumber: string; bankCode: string; accountName?: string };
+
 }): Promise<{ ok: boolean }> {
   const res = await authFetch('/api/settings', {
     method: 'POST',
@@ -240,4 +248,13 @@ export async function createPaymentSession(body: {
     body: JSON.stringify(body),
   });
   return handleResponse<PaymentSession>(res, { auth: true });
+}
+
+export async function requestWithdrawal(amount: number): Promise<unknown> {
+  const res = await authFetch('/api/withdraw', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount }),
+  });
+  return handleResponse(res, { auth: true });
 }

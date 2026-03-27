@@ -8,8 +8,7 @@ import {
   Bell,
   Users,
   ExternalLink,
-  Smartphone,
-  Globe,
+
 } from 'lucide-react';
 import { getMerchantProfile, saveSettings, type MerchantProfile } from '../api/client';
 
@@ -21,26 +20,22 @@ export function Settings() {
 
   const [businessLegalName, setBusinessLegalName] = useState('');
   const [registeredAddress, setRegisteredAddress] = useState('');
-  const [merchantCode, setMerchantCode] = useState('');
-  const [payItemId, setPayItemId] = useState('');
-  const [clientId, setClientId] = useState('');
-  const [secretKey, setSecretKey] = useState('');
-  const [mode, setMode] = useState<'TEST' | 'LIVE'>('TEST');
-  const [tillAlias, setTillAlias] = useState('');
-  const [dataRef, setDataRef] = useState('');
+
+  const [bankCode, setBankCode] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [accountName, setAccountName] = useState('');
 
   const load = async () => {
     const p = await getMerchantProfile();
     setProfile(p);
     setBusinessLegalName(p.legalBusinessName);
     setRegisteredAddress(p.registeredAddress);
-    setMerchantCode(p.merchantCode);
-    setPayItemId(p.payItemId);
-    setClientId('');
-    setSecretKey('');
-    setMode(p.integrationMode);
-    setTillAlias(p.tillAlias ?? '');
-    setDataRef('');
+
+    if (p.collectionBank) {
+      setBankCode(p.collectionBank.bankCode);
+      setAccountNumber(p.collectionBank.accountNumber);
+      setAccountName(p.collectionBank.accountName || '');
+    }
   };
 
   useEffect(() => {
@@ -63,32 +58,17 @@ export function Settings() {
     setOkMsg(null);
     setBusy(true);
     try {
-      const interswitch: {
-        merchantCode: string;
-        payItemId: string;
-        mode: 'TEST' | 'LIVE';
-        tillAlias: string;
-        clientId?: string;
-        secretKey?: string;
-        dataRef?: string;
-      } = {
-        merchantCode,
-        payItemId,
-        mode,
-        tillAlias,
-      };
-      if (clientId.trim()) interswitch.clientId = clientId.trim();
-      if (secretKey.trim()) interswitch.secretKey = secretKey.trim();
-      if (dataRef.trim()) interswitch.dataRef = dataRef.trim();
-
+      // Interswitch settings are configured strictly from the backend via environment variables
       await saveSettings({
         businessLegalName: businessLegalName.trim(),
         registeredAddress: registeredAddress.trim(),
-        interswitch,
+        collectionBank: {
+          bankCode: bankCode.trim(),
+          accountNumber: accountNumber.trim(),
+          accountName: accountName.trim()
+        },
       });
       setOkMsg('Saved.');
-      setClientId('');
-      setSecretKey('');
       await load();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Save failed');
@@ -156,13 +136,11 @@ export function Settings() {
             <section className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-black text-on-surface">Business Identity</h3>
-                <span className="text-[10px] font-black uppercase tracking-widest text-tertiary bg-tertiary-container/20 px-2 py-1 rounded">
-                  {mode} mode
-                </span>
+
               </div>
 
               <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2 col-span-2 md:col-span-1">
+                <div className="space-y-2 col-span-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                     Legal Business Name
                   </label>
@@ -171,17 +149,6 @@ export function Settings() {
                     className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-on-surface"
                     value={businessLegalName}
                     onChange={(e) => setBusinessLegalName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2 col-span-2 md:col-span-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Merchant code
-                  </label>
-                  <input
-                    required
-                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-on-surface font-mono"
-                    value={merchantCode}
-                    onChange={(e) => setMerchantCode(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2 col-span-2">
@@ -200,110 +167,27 @@ export function Settings() {
 
             <section className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-black text-on-surface">Interswitch API (Quickteller)</h3>
-                <a
-                  className="text-primary text-xs font-bold hover:underline"
-                  href="https://docs.interswitchgroup.com/docs/home"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Documentation
-                </a>
+                <h3 className="text-lg font-black text-on-surface">Collection Bank</h3>
               </div>
-              <p className="text-xs text-slate-500">
-                Client ID (saved): <span className="font-mono">{profile.clientIdMasked}</span>. Secret:{' '}
-                {profile.hasClientSecret ? 'stored (leave blank to keep)' : 'missing'}. To rotate keys, enter new
-                values below.
-              </p>
-
-              <div className="grid grid-cols-1 gap-4">
-                <select
-                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold"
-                  value={mode}
-                  onChange={(e) => setMode(e.target.value === 'LIVE' ? 'LIVE' : 'TEST')}
-                >
-                  <option value="TEST">TEST (sandbox)</option>
-                  <option value="LIVE">LIVE</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
                 <input
-                  required
-                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-mono text-xs"
-                  placeholder="Pay item ID"
-                  value={payItemId}
-                  onChange={(e) => setPayItemId(e.target.value)}
-                />
-                <input
-                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-mono text-xs"
-                  placeholder={`New client ID (optional · current ends ${profile.clientIdMasked})`}
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                />
-                <input
-                  type="password"
                   className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm"
-                  placeholder="New secret key (optional)"
-                  value={secretKey}
-                  onChange={(e) => setSecretKey(e.target.value)}
+                  placeholder="Bank Code (e.g. 044)"
+                  value={bankCode}
+                  onChange={(e) => setBankCode(e.target.value)}
                 />
                 <input
                   className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm"
-                  placeholder="Till alias (optional)"
-                  value={tillAlias}
-                  onChange={(e) => setTillAlias(e.target.value)}
+                  placeholder="Account Number"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value)}
                 />
                 <input
-                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-mono text-xs"
-                  placeholder={
-                    profile.hasDataRefConfigured
-                      ? 'Data ref on file — enter only to replace'
-                      : 'Data ref (optional)'
-                  }
-                  value={dataRef}
-                  onChange={(e) => setDataRef(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm col-span-2"
+                  placeholder="Account Name"
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
                 />
-              </div>
-            </section>
-
-            <section className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-black text-on-surface">Settlement Matrix</h3>
-                <a
-                  className="text-primary text-xs font-bold hover:underline"
-                  href="https://business.quickteller.com/"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Quickteller Business
-                </a>
-              </div>
-
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white rounded-lg shadow-sm flex items-center justify-center">
-                    <Globe className="text-primary w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-on-surface">Interswitch collections</p>
-                    <p className="text-xs text-slate-500 font-medium font-mono">Pay item {payItemId}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-black text-tertiary uppercase tracking-widest">Primary</p>
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white rounded-lg shadow-sm flex items-center justify-center">
-                    <Smartphone className="text-slate-400 w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-on-surface">Till / alias</p>
-                    <p className="text-xs text-slate-500 font-medium">
-                      {tillAlias.trim() ? `Alias ${tillAlias.trim()}` : 'Optional — not set'}
-                    </p>
-                  </div>
-                </div>
               </div>
             </section>
 

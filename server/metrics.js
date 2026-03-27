@@ -1,44 +1,15 @@
-import type { Invoice, Product } from '../src/types.js';
-
-export interface DashboardRecentInvoice {
-  customer: string;
-  amountNaira: number;
-  amountFormatted: string;
-  status: string;
-  date: string;
-  initials: string;
-}
-
-export interface DashboardPayload {
-  stats: {
-    revenueNaira: number;
-    revenueFormatted: string;
-    revenueTrendLabel: string;
-    outstandingNaira: number;
-    outstandingFormatted: string;
-    overdueInvoiceCount: number;
-    openInvoiceCount: number;
-    successRatePercent: number;
-    successRateFormatted: string;
-  };
-  recentInvoices: DashboardRecentInvoice[];
-  salesTrendHeights: number[];
-  salesTrendLabels: string[];
-  payout: { nextDate: string; estimatedNaira: number; estimatedFormatted: string };
-}
-
-function formatNgn(n: number): string {
+function formatNgn(n) {
   return `₦ ${n.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
 }
 
-function initialsFromName(name: string): string {
+function initialsFromName(name) {
   const parts = name.split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export function computeDashboard(invoices: Invoice[], products: Product[]): DashboardPayload {
+export function computeDashboard(invoices, products) {
   if (invoices.length === 0) {
     return {
       stats: {
@@ -73,7 +44,7 @@ export function computeDashboard(invoices: Invoice[], products: Product[]): Dash
   const revenueTrendLabel =
     invoices.length === 0 || paidCount === 0 ? '—' : `${Math.round(successRate)}% invoices paid`;
 
-  const recent: DashboardRecentInvoice[] = invoices.slice(0, 4).map((i) => ({
+  const recent = invoices.slice(0, 4).map((i) => ({
     customer: i.customer,
     amountNaira: i.amount,
     amountFormatted: formatNgn(i.amount),
@@ -118,7 +89,7 @@ export function computeDashboard(invoices: Invoice[], products: Product[]): Dash
   };
 }
 
-export function computeInventorySummary(products: Product[]) {
+export function computeInventorySummary(products) {
   if (products.length === 0) {
     return {
       totalItems: 0,

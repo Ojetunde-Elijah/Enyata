@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './prestart.js';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
@@ -9,6 +9,8 @@ import { registerApiRoutes } from './server/routes.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+console.log(process.env.PORT)
+console.log(process.env.INTERSWITCH_MERCHANT_CODE);
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
@@ -29,7 +31,7 @@ async function startServer() {
         const html = await vite.transformIndexHtml(url, template);
         res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
       } catch (e) {
-        vite.ssrFixStacktrace(e as Error);
+        vite.ssrFixStacktrace(e);
         next(e);
       }
     });

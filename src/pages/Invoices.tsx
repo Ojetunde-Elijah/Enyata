@@ -24,6 +24,7 @@ import {
   CreditCard,
   Plus,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { cn } from '../utils/cn';
 
 export function Invoices() {
@@ -70,6 +71,10 @@ export function Invoices() {
   const onCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
     const amount = Number(newAmount);
+    if (!profile?.collectionBank?.accountNumber || !profile?.collectionBank?.bankCode) {
+      setPayMsg('Collection bank required. Please configure your bank details in Settings first.');
+      return;
+    }
     if (!Number.isFinite(amount) || amount <= 0) {
       setPayMsg('Enter a valid invoice amount.');
       return;
@@ -184,6 +189,16 @@ export function Invoices() {
                 <Plus className="w-4 h-4" />
                 {createBusy ? 'Saving…' : 'Add invoice'}
               </button>
+              {payMsg && (
+                <p className="text-[11px] text-error font-bold leading-tight mt-2 flex flex-col gap-1">
+                  <span>{payMsg}</span>
+                  {payMsg.includes('Settings') && (
+                    <Link to="/settings" className="text-primary hover:underline underline-offset-2">
+                       Configure Bank Details →
+                    </Link>
+                  )}
+                </p>
+              )}
             </form>
 
             <div className="relative">

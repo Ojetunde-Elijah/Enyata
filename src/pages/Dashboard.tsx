@@ -2,19 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { StatusBadge } from '../components/StatusBadge';
 import { cn } from '../utils/cn';
-import { getDashboard, getPublicConfig, type DashboardPayload, type PublicConfig } from '../api/client';
+import { getDashboard, getPublicConfig, requestWithdrawal, type DashboardPayload, type PublicConfig } from '../api/client';
 import {
   TrendingUp,
   Clock,
   CheckCircle2,
   Plus,
   ShieldCheck,
+  Wallet,
 } from 'lucide-react';
 
 export function Dashboard() {
   const [dash, setDash] = useState<DashboardPayload | null>(null);
   const [cfg, setCfg] = useState<PublicConfig | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawMsg, setWithdrawMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +79,20 @@ export function Dashboard() {
     },
   ];
 
+  const handleWithdraw = async () => {
+     if (!dash?.payout.estimatedNaira) return;
+     setWithdrawing(true);
+     setWithdrawMsg(null);
+     try {
+       await requestWithdrawal(dash.payout.estimatedNaira);
+       setWithdrawMsg('Withdrawal successful!');
+     } catch (e: any) {
+       setWithdrawMsg(e.message || 'Withdrawal failed');
+     } finally {
+       setWithdrawing(false);
+     }
+  };
+
   return (
     <Layout title="Business Overview">
       <div className="space-y-10">
@@ -90,43 +107,65 @@ export function Dashboard() {
           </button>
         </div>
 
-        <section className="bg-white p-6 rounded-2xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 shadow-sm border-l-4 border-primary">
-          <div className="flex items-center gap-5">
-            <div className="w-14 h-14 bg-primary-container/20 rounded-full flex items-center justify-center">
-              <ShieldCheck className="text-primary w-8 h-8" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <section className="bg-white p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 shadow-sm border-l-4 border-primary">
+            <div className="flex items-center gap-5">
+              <div className="w-14 h-14 bg-primary-container/20 rounded-full flex items-center justify-center">
+                <ShieldCheck className="text-primary w-8 h-8" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-on-surface">Interswitch checkout</h3>
+                <p className="text-slate-500 text-sm">
+                  {cfg.mode === 'TEST'
+                    ? 'Test environment — use sandbox cards.'
+                    : 'Live mode enabled.'}
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-on-surface">Interswitch checkout</h3>
-              <p className="text-slate-500 text-sm">
-                {cfg.mode === 'TEST'
-                  ? 'Test environment — use sandbox cards from Interswitch docs before going live.'
-                  : 'Live mode — ensure PCI and reconciliation flows are enabled.'}
-              </p>
+            <div className="flex flex-wrap gap-6 text-sm">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Merchant code</p>
+                <p className="font-mono font-bold text-on-surface">{cfg.merchantCode || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Mode</p>
+                <span className="font-mono text-xs font-black text-primary tracking-wide">{cfg.mode}</span>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-8 lg:pr-6 text-sm">
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Merchant code</p>
-              <p className="font-mono font-bold text-on-surface">{cfg.merchantCode || '—'}</p>
+          </section>
+
+          <section className="bg-gradient-to-br from-primary to-blue-900 p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 shadow-md text-white">
+             <div className="flex items-center gap-5">
+              <div className="w-14 h-14 bg-white/10 rounded-full flex items-center justify-center">
+                <Wallet className="text-white w-8 h-8" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Virtual Settlement Account</h3>
+                <p className="text-white/70 text-sm">₦0.00 Available Balance</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Pay item</p>
-              <p className="font-mono font-bold text-on-surface text-xs break-all max-w-[220px]">
-                {cfg.payItemId || '—'}
-              </p>
+            <div className="flex flex-wrap gap-6 text-sm">
+              {dash.virtualWallet?.virtualAccount ? (
+                <>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-white/50 font-bold mb-1">Account Number</p>
+                    <p className="font-mono font-bold tracking-wider">{dash.virtualWallet.virtualAccount.accountNumber}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-white/50 font-bold mb-1">Bank</p>
+                    <p className="font-bold">{dash.virtualWallet.virtualAccount.bankName}</p>
+                  </div>
+                </>
+              ) : (
+                <div className="py-2">
+                   <p className="text-[10px] uppercase tracking-widest text-white/50 font-bold mb-1">Status</p>
+                   <p className="text-xs font-bold bg-white/10 px-3 py-1 rounded-lg">Verification Pending</p>
+                </div>
+              )}
             </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Mode</p>
-              <span className="font-mono text-xs font-black text-primary tracking-wide">{cfg.mode}</span>
-            </div>
-              {!cfg.paymentEnvReady && (
-              <p className="text-amber-700 text-xs font-semibold max-w-xs">
-                Interswitch credentials incomplete — open <span className="font-semibold">Settings</span> and enter
-                merchant code, pay item, client ID, and secret (or re-run signup).
-              </p>
-            )}
-          </div>
-        </section>
+          </section>
+
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {stats.map((stat, i) => (
@@ -256,6 +295,15 @@ export function Dashboard() {
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Estimated Amount</span>
                 <span className="text-lg font-black text-primary">{dash.payout.estimatedFormatted}</span>
               </div>
+              
+              {withdrawMsg && <p className="text-xs font-medium mt-3 text-center text-primary">{withdrawMsg}</p>}
+              <button
+                disabled={withdrawing || dash.payout.estimatedNaira <= 0}
+                onClick={() => void handleWithdraw()}
+                className="w-full mt-4 py-2 bg-primary text-white text-sm font-bold rounded-xl disabled:opacity-50"
+              >
+                {withdrawing ? 'Processing...' : 'Withdraw to Bank'}
+              </button>
             </div>
           </div>
         </div>
