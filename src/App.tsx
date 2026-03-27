@@ -10,6 +10,11 @@ import { Reports } from './pages/Reports';
 import { Help } from './pages/Help';
 import { PublicPayment } from './pages/PublicPayment';
 import { RequireAuth } from './components/RequireAuth';
+import { getToken } from './api/client';
+
+function RootRedirect() {
+  return <Navigate to={getToken() ? '/dashboard' : '/login'} replace />;
+}
 
 export default function App() {
   return (
@@ -66,7 +71,7 @@ export default function App() {
           }
         />
         <Route path="/pay/:invoiceId" element={<PublicPayment />} />
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<RootRedirect />} />
       </Routes>
     </Router>
   );

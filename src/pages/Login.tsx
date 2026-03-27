@@ -1,15 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { Wallet, ArrowRight, Lock } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { getSetupStatus, login, setToken } from '../api/client';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { getSetupStatus, login, setToken, getToken } from '../api/client';
 
 export function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string })?.from || '/dashboard';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
+
+  // Already logged in — go directly to dashboard
+  useEffect(() => {
+    if (getToken()) navigate(from, { replace: true });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,7 +42,7 @@ export function Login() {
     try {
       const { token } = await login(email.trim(), password);
       setToken(token);
-      navigate('/dashboard', { replace: true });
+      navigate(from, { replace: true });
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : 'Login failed');
     } finally {
@@ -69,8 +76,8 @@ export function Login() {
               Sovereign control over your business capital.
             </h1>
             <p className="text-lg text-blue-200 font-medium leading-relaxed">
-              Sign in with the administrator account you created during workspace setup. Add invoices and run
-              Interswitch Web Checkout with your own merchant credentials.
+              Sign in to your Kolet Pay account to manage invoices, accept payments, and track your business — 
+              or create a new account if you&apos;re just getting started.
             </p>
           </div>
 
@@ -143,18 +150,9 @@ export function Login() {
 
           <div className="mt-12 text-center">
             <p className="text-on-surface-variant font-medium text-sm">
-              Need the docs?{' '}
-              <a
-                className="text-primary font-bold hover:underline"
-                href="https://docs.interswitchgroup.com/docs/home"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Interswitch
-              </a>
-              {' · '}
+              Don&apos;t have an account?{' '}
               <Link className="text-primary font-bold hover:underline" to="/signup">
-                Wrong account? Start over (reset workspace)
+                Sign up for free
               </Link>
             </p>
           </div>

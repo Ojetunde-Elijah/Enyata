@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Wallet, ArrowRight, ShieldCheck } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { getSetupStatus, signup, setToken } from '../api/client';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { getSetupStatus, signup, setToken, getToken } from '../api/client';
 
 const defaultForm = {
   email: '',
@@ -24,10 +24,17 @@ type FormKey = keyof typeof defaultForm;
 
 export function Signup() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string })?.from || '/dashboard';
   const [form, setForm] = useState(defaultForm);
   const [busy, setBusy] = useState(false);
   const [busyStage, setBusyStage] = useState<'verifying' | 'saving' | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  // Already logged in — skip signup
+  useEffect(() => {
+    if (getToken()) navigate('/dashboard', { replace: true });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,7 +96,7 @@ export function Signup() {
       });
       setBusyStage('saving');
       setToken(token);
-      navigate('/dashboard', { replace: true });
+      navigate(from, { replace: true });
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : 'Signup failed');
     } finally {
